@@ -33,7 +33,7 @@ A modern, multi-agent chatbot system that helps users plan trips, check weather,
 
 ## APIs Used
 
-    ** Nominatim (OpenStreetMap) **
+    # Nominatim (OpenStreetMap)
     Purpose: Geocoding (convert place name to coordinates) and reverse geocoding (get canonical city name).
     Docs: https://nominatim.org/release-docs/develop/api/Search/
     # Open-Meteo
