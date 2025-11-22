@@ -6,20 +6,18 @@ A modern, multi-agent chatbot system that helps users plan trips, check weather,
 
 ## Project Structure
 
-│
-├── main_app.py # Streamlit UI (chat interface)
-├── .env # Environment variables (API URLs, keys)
-├── requirements.txt # Python dependencies
-├── README.md 
-│
-├── src/
-│ ├── orchestrator.py # Orchestrator agent (intent/location extraction, routing)
-│ ├── weather_agent.py # Weather agent (Nominatim + Open-Meteo)
-│ ├── places_agent.py # Places agent (Nominatim + Overpass + reverse geocode)
-│ └── gemini_agent.py # Google Gemini API wrapper
+    │
+    ├── main_app.py # Streamlit UI (chat interface)
+    ├── .env # Environment variables (API URLs, keys)
+    ├── requirements.txt # Python dependencies
+    ├── README.md 
+    │
+    ├── src/
+    │ ├── orchestrator.py # Orchestrator agent (intent/location extraction, routing)
+    │ ├── weather_agent.py # Weather agent (Nominatim + Open-Meteo)
+    │ ├── places_agent.py # Places agent (Nominatim + Overpass + reverse geocode)
+    │ └── gemini_agent.py # Google Gemini API wrapper
 
-
----
 
 ## Dependencies
 
