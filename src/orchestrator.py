@@ -1,5 +1,5 @@
-from weather_agent import get_weather_info
-from places_agent import get_places_info
+from src.weather_agent import get_weather_info
+from src.places_agent import get_places_info
 import re
 
 

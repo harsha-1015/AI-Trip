@@ -1,5 +1,5 @@
 import streamlit as st
-from orchestrator import handle_user_query
+from src.orchestrator import handle_user_query
 
 # Page config and sidebar
 st.set_page_config(page_title="Tourism Planner & Weather Info", page_icon="🌍")

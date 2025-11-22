@@ -1,6 +1,6 @@
 import requests
 import os
-from gemini_agent import gemini_chat
+from src.gemini_agent import gemini_chat
 from dotenv import load_dotenv
 
 load_dotenv()

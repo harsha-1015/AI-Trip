@@ -1,6 +1,6 @@
 import requests
 import os
-from gemini_agent import gemini_chat
+from src.gemini_agent import gemini_chat
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,8 +14,13 @@ def get_weather_info(location: str) -> str:
     nominatim_url = os.getenv("NOMINATIM_URL")
     params = {"q": location, "format": "json", "limit": 1}
     headers = {"User-Agent": "tourism-app"}
-    resp = requests.get(nominatim_url, params=params, headers=headers)
-    data = resp.json()
+    try:
+        resp = requests.get(nominatim_url, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        return f"Sorry, there was a problem contacting the location service: {e}"
+
     # Only check for valid lat, lon, and display_name (no importance threshold)
     if (
         not data
@@ -37,8 +42,13 @@ def get_weather_info(location: str) -> str:
         "current": "temperature_2m,precipitation_probability",
         "timezone": "auto"
     }
-    resp = requests.get(openmeteo_url, params=params)
-    weather_data = resp.json()
+    try:
+        resp = requests.get(openmeteo_url, params=params, timeout=10)
+        resp.raise_for_status()
+        weather_data = resp.json()
+    except Exception as e:
+        return f"Sorry, there was a problem contacting the weather service: {e}"
+
     try:
         temp = weather_data["current"]["temperature_2m"]
         precip = weather_data["current"]["precipitation_probability"]
