@@ -48,12 +48,21 @@ def extract_location(text: str) -> str | None:
             return capitals[-1].lower()
 
     # 3) Fallbacks
+    NON_LOCATIONS = {"ok", "yes", "no", "hi", "hey", "hello", "thanks", "thankyou", "thank you"}
+
     tokens = re.findall(r"[A-Za-z]+", text_norm)
+
+    # If single token, only return if it's NOT in stopwords and length > 2
     if len(tokens) == 1:
-        return tokens[0].lower()
+        tok = tokens[0].lower()
+        if tok not in NON_LOCATIONS and len(tok) > 2:
+            return tok
+        return None
+
+    # For multi-token input, last word fallback – only if valid city-like
     if tokens:
         last = tokens[-1].lower()
-        if len(last) > 2:
+        if last not in NON_LOCATIONS and len(last) > 2:
             return last
 
     return None

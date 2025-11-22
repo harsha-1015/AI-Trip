@@ -1,13 +1,17 @@
 import requests
+import os
 from gemini_agent import gemini_chat
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_weather_info(location: str) -> str:
     """
-    Uses Nominatim and Open-Meteo APIs to get weather data,
+    Uses Open-Meteo APIs to get weather data,
     then formats the response using Gemini.
     """
     # Step 1: Get coordinates from Nominatim
-    nominatim_url = "https://nominatim.openstreetmap.org/search"
+    nominatim_url = os.getenv("NOMINATIM_URL")
     params = {"q": location, "format": "json", "limit": 1}
     headers = {"User-Agent": "tourism-app"}
     resp = requests.get(nominatim_url, params=params, headers=headers)
@@ -26,7 +30,7 @@ def get_weather_info(location: str) -> str:
     lon = data[0]["lon"]
 
     # Step 2: Get weather from Open-Meteo
-    openmeteo_url = "https://api.open-meteo.com/v1/forecast"
+    openmeteo_url = os.getenv("OPENMETEO_URL")
     params = {
         "latitude": lat,
         "longitude": lon,

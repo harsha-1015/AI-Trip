@@ -1,9 +1,14 @@
 import requests
+import os
 from gemini_agent import gemini_chat
+from dotenv import load_dotenv
+
+load_dotenv()
+
+nominatim_url=os.getenv("NOMINATIM_URL")
 
 def get_places_info(location: str) -> str:
     # Step 1: Get coordinates from Nominatim
-    nominatim_url = "https://nominatim.openstreetmap.org/search"
     params = {"q": location, "format": "json", "limit": 1}
     headers = {"User-Agent": "tourism-app"}
     resp = requests.get(nominatim_url, params=params, headers=headers)
@@ -22,7 +27,7 @@ def get_places_info(location: str) -> str:
     lon = data[0]["lon"]
 
     # Step 1b: Reverse geocode to get canonical city name
-    reverse_url = "https://nominatim.openstreetmap.org/reverse"
+    reverse_url = nominatim_url
     reverse_params = {
         "lat": lat,
         "lon": lon,
@@ -44,7 +49,7 @@ def get_places_info(location: str) -> str:
         canonical_city = data[0].get("display_name", location).split(",")[0]
 
     # Step 2: Get places from Overpass API
-    overpass_url = "https://overpass-api.de/api/interpreter"
+    overpass_url = os.getenv("OVERPASS_URL")
     query = f"""
     [out:json];
     (
@@ -72,6 +77,6 @@ def get_places_info(location: str) -> str:
         f"Here are some places to visit in {canonical_city}:\n"
         f"{place_names}\n"
         f"Return only a Markdown bullet list (each place on its own line, starting with '- '), using only the names provided. "
-        f"Do not add or invent any places. Do not include any explanation, just the list."
+        f"Do not add or invent any places. Do not include any explanation, just the list and one line of intraduction."
     )
     return gemini_chat(prompt)
