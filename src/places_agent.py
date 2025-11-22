@@ -8,6 +8,7 @@ load_dotenv()
 nominatim_url = os.getenv("NOMINATIM_URL")
 
 def get_places_info(location: str) -> str:
+    
     # Step 1: Get coordinates from Nominatim
     params = {"q": location, "format": "json", "limit": 1}
     headers = {"User-Agent": "tourism-app"}
@@ -31,13 +32,13 @@ def get_places_info(location: str) -> str:
     lat = data[0]["lat"]
     lon = data[0]["lon"]
 
-    # Step 1b: Reverse geocode to get canonical city name
+ 
     reverse_url = nominatim_url.replace("/search", "/reverse") if "/search" in nominatim_url else nominatim_url
     reverse_params = {
         "lat": lat,
         "lon": lon,
         "format": "json",
-        "zoom": 10,  # city/town/village level
+        "zoom": 10,
         "addressdetails": 1
     }
     try:

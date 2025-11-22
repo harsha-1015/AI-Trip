@@ -103,5 +103,3 @@ st.text_input(
     on_change=submit,
     placeholder="Ask about a destination, weather, or places to visit...",
 )
-
-# Auto-scroll to latest message (Streamlit does this by default)
