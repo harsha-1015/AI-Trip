@@ -9,7 +9,7 @@ def extract_location(text: str) -> str | None:
     """
 
     # 0) Normalize curly apostrophes to simple ones
-    text_norm = text.replace("’", "'")
+    text_norm = text.replace("'", "'")
     text_clean = text_norm.strip()
 
     # 1) Try to catch phrases after clear travel/location verbs.
@@ -19,6 +19,8 @@ def extract_location(text: str) -> str | None:
         r"\bgoing to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
         r"\btravel to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
         r"\btrip to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
+        # Fixed: Skip filler words like "some places", "any places", "the places" before "in"
+        r"\bvisit\s+(?:some\s+places\s+|any\s+places\s+|the\s+places\s+|places\s+)?(?:in|at|to|near)\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
         r"\bvisit\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
         # generic in/at/to/for/near as a fallback
         r"\b(?:in|at|to|for|near)\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
@@ -30,33 +32,45 @@ def extract_location(text: str) -> str | None:
             candidate = match.group(1).strip()
 
             # 1a) Strip trailing non-location phrases from the captured chunk
-            #     handle both "let's" and "let’s" via let[’']?s
+            #     handle both "let's" and "let's" via let['']?s
             candidate = re.split(
-                r"\b(?:let[’']?s|and|for|what|which|who|how|when|where|"
+                r"\b(?:let['']?s|and|for|what|which|who|how|when|where|"
                 r"plan(?: my)? trip|plan(?: my)? visit)\b",
                 candidate,
                 flags=re.IGNORECASE,
             )[0].strip()
 
+            # 1b) Strip common filler words that might have been captured
+            filler_words = ["some", "places", "any", "the", "many", "few", "several"]
+            words = candidate.split()
+            # Remove leading filler words
+            while words and words[0].lower() in filler_words:
+                words.pop(0)
+            # Remove trailing filler words
+            while words and words[-1].lower() in filler_words:
+                words.pop()
+            
+            candidate = " ".join(words).strip()
+
             if candidate:
                 return candidate.lower()
 
-    # 2) If user says “plan my trip/visit”, use last capitalized phrase as location
-    if any(x in text_clean.lower() for x in ["plan my trip", "plan my visit", "plan trip", "plan visit"]):
-        capitals = re.findall(r"[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*", text_norm)
-        if capitals:
-            return capitals[-1].lower()
+    # 2) If user says "plan my trip/visit", use last capitalized phrase as location
+        if any(x in text_clean.lower() for x in ["plan my trip", "plan my visit", "plan trip", "plan visit"]):
+            capitals = re.findall(r"[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*", text_norm)
+            if capitals:
+                return capitals[-1].lower()
 
-    # 3) Fallbacks
-    NON_LOCATIONS = {"ok", "yes", "no", "hi", "hey", "hello", "thanks", "thankyou", "thank you"}
+        # 3) Fallbacks
+        NON_LOCATIONS = {"ok", "yes", "no", "hi", "hey", "hello", "thanks", "thankyou", "thank you"}
 
-    tokens = re.findall(r"[A-Za-z]+", text_norm)
+        tokens = re.findall(r"[A-Za-z]+", text_norm)
 
-    # If single token, only return if it's NOT in stopwords and length > 2
-    if len(tokens) == 1:
-        tok = tokens[0].lower()
-        if tok not in NON_LOCATIONS and len(tok) > 2:
-            return tok
+        # If single token, only return if it's NOT in stopwords and length > 2
+        if len(tokens) == 1:
+            tok = tokens[0].lower()
+            if tok not in NON_LOCATIONS and len(tok) > 2:
+                return tok
         return None
 
     # For multi-token input, last word fallback – only if valid city-like
