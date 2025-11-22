@@ -1,85 +1,94 @@
+import spacy
+import re
 from src.weather_agent import get_weather_info
 from src.places_agent import get_places_info
-import re
+
+# Load spaCy model (you'll need to install: python -m spacy download en_core_web_sm)
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    # Fallback if model not installed
+    nlp = None
+    print("Warning: spaCy model not found. Install with: python -m spacy download en_core_web_sm")
 
 
-def extract_location(text: str) -> str | None:
+def extract_location_nlp(text: str) -> str | None:
     """
-    Extracts probable location using multiple intelligent strategies.
+    Extract location using spaCy Named Entity Recognition.
+    Returns the most relevant location entity found.
     """
+    if nlp is None:
+        return extract_location_fallback(text)
+    
+    doc = nlp(text)
+    
+    # Extract all location entities (GPE = Geo-Political Entity, LOC = Location)
+    locations = [ent.text for ent in doc.ents if ent.label_ in ["GPE", "LOC"]]
+    
+    if locations:
+        # Prioritize locations that appear after prepositions or verbs
+        text_lower = text.lower()
+        location_keywords = ["in", "at", "to", "near", "visit", "go", "travel", "trip"]
+        
+        for loc in locations:
+            loc_pos = text_lower.find(loc.lower())
+            # Check if there's a relevant keyword before this location
+            prefix = text_lower[:loc_pos]
+            if any(keyword in prefix for keyword in location_keywords):
+                return loc.lower()
+        
+        # If no keyword found, return the last location mentioned
+        return locations[-1].lower()
+    
+    # Fallback to regex-based extraction
+    return extract_location_fallback(text)
 
-    # 0) Normalize curly apostrophes to simple ones
+
+def extract_location_fallback(text: str) -> str | None:
+    """
+    Fallback regex-based location extraction when NLP is unavailable.
+    """
     text_norm = text.replace("'", "'")
     text_clean = text_norm.strip()
 
-    # 1) Try to catch phrases after clear travel/location verbs.
-    #    Order matters: more specific patterns first.
+    # Simplified patterns focusing on prepositions and common verbs
     patterns = [
-        r"\bgo to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        r"\bgoing to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        r"\btravel to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        r"\btrip to\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        # Fixed: Skip filler words like "some places", "any places", "the places" before "in"
-        r"\bvisit\s+(?:some\s+places\s+|any\s+places\s+|the\s+places\s+|places\s+)?(?:in|at|to|near)\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        r"\bvisit\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
-        # generic in/at/to/for/near as a fallback
-        r"\b(?:in|at|to|for|near)\s+([A-Za-z][A-Za-z\s]+?)(?:[,.!?]|$)",
+        r"\b(?:visit|go|travel|trip)\s+(?:some\s+)?(?:places\s+)?(?:in|at|to|near)\s+([A-Z][A-Za-z\s]+?)(?:[,.!?]|$)",
+        r"\b(?:in|at|to|near)\s+([A-Z][A-Za-z\s]+?)(?:[,.!?]|$)",
+        r"\b(?:visit|go|travel)\s+(?:to\s+)?([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)(?:[,.!?]|$)",
     ]
 
     for pattern in patterns:
         match = re.search(pattern, text_clean, flags=re.IGNORECASE)
         if match:
             candidate = match.group(1).strip()
-
-            # 1a) Strip trailing non-location phrases from the captured chunk
-            #     handle both "let's" and "let's" via let['']?s
-            candidate = re.split(
-                r"\b(?:let['']?s|and|for|what|which|who|how|when|where|"
-                r"plan(?: my)? trip|plan(?: my)? visit)\b",
-                candidate,
-                flags=re.IGNORECASE,
-            )[0].strip()
-
-            # 1b) Strip common filler words that might have been captured
+            
+            # Clean up filler words
             filler_words = ["some", "places", "any", "the", "many", "few", "several"]
             words = candidate.split()
-            # Remove leading filler words
-            while words and words[0].lower() in filler_words:
-                words.pop(0)
-            # Remove trailing filler words
-            while words and words[-1].lower() in filler_words:
-                words.pop()
+            words = [w for w in words if w.lower() not in filler_words]
             
             candidate = " ".join(words).strip()
-
-            if candidate:
+            
+            if candidate and len(candidate) > 2:
                 return candidate.lower()
 
-    # 2) If user says "plan my trip/visit", use last capitalized phrase as location
-        if any(x in text_clean.lower() for x in ["plan my trip", "plan my visit", "plan trip", "plan visit"]):
-            capitals = re.findall(r"[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*", text_norm)
-            if capitals:
-                return capitals[-1].lower()
-
-        # 3) Fallbacks
-        NON_LOCATIONS = {"ok", "yes", "no", "hi", "hey", "hello", "thanks", "thankyou", "thank you"}
-
-        tokens = re.findall(r"[A-Za-z]+", text_norm)
-
-        # If single token, only return if it's NOT in stopwords and length > 2
-        if len(tokens) == 1:
-            tok = tokens[0].lower()
-            if tok not in NON_LOCATIONS and len(tok) > 2:
-                return tok
-        return None
-
-    # For multi-token input, last word fallback – only if valid city-like
-    if tokens:
-        last = tokens[-1].lower()
-        if last not in NON_LOCATIONS and len(last) > 2:
-            return last
+    # Last resort: check for capitalized words
+    capitals = re.findall(r"[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*", text_norm)
+    NON_LOCATIONS = {"ok", "yes", "no", "hi", "hey", "hello", "thanks", "i"}
+    
+    for cap in reversed(capitals):  # Check from end
+        if cap.lower() not in NON_LOCATIONS:
+            return cap.lower()
 
     return None
+
+
+def extract_location(text: str) -> str | None:
+    """
+    Main location extraction function - uses NLP when available.
+    """
+    return extract_location_nlp(text)
 
 
 def detect_intent(query: str):
@@ -114,7 +123,7 @@ def handle_user_query(query: str) -> str:
     """
     Strong orchestrator:
     - Detects intent (weather / places / both)
-    - Extracts location robustly
+    - Extracts location robustly using NLP
     - Calls appropriate agents
     - Combines response
     """

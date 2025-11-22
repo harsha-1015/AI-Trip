@@ -5,14 +5,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-nominatim_url=os.getenv("NOMINATIM_URL")
+nominatim_url = os.getenv("NOMINATIM_URL")
 
 def get_places_info(location: str) -> str:
     # Step 1: Get coordinates from Nominatim
     params = {"q": location, "format": "json", "limit": 1}
     headers = {"User-Agent": "tourism-app"}
-    resp = requests.get(nominatim_url, params=params, headers=headers)
-    data = resp.json()
+    try:
+        resp = requests.get(nominatim_url, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        return f"Sorry, there was a problem contacting the location service: {e}"
+
     # Only check for valid lat, lon, and display_name (no importance threshold)
     if (
         not data
@@ -27,7 +32,7 @@ def get_places_info(location: str) -> str:
     lon = data[0]["lon"]
 
     # Step 1b: Reverse geocode to get canonical city name
-    reverse_url = nominatim_url
+    reverse_url = nominatim_url.replace("/search", "/reverse") if "/search" in nominatim_url else nominatim_url
     reverse_params = {
         "lat": lat,
         "lon": lon,
@@ -35,17 +40,19 @@ def get_places_info(location: str) -> str:
         "zoom": 10,  # city/town/village level
         "addressdetails": 1
     }
-    reverse_resp = requests.get(reverse_url, params=reverse_params, headers=headers)
-    canonical_city = None
-    if reverse_resp.ok:
+    try:
+        reverse_resp = requests.get(reverse_url, params=reverse_params, headers=headers, timeout=10)
+        reverse_resp.raise_for_status()
         reverse_data = reverse_resp.json()
         address = reverse_data.get("address", {})
-        # Prefer city, then town, then village, then state_district, then state
+        canonical_city = None
         for key in ["city", "town", "village", "municipality", "county", "state_district", "state"]:
             if key in address:
                 canonical_city = address[key]
                 break
-    if not canonical_city:
+        if not canonical_city:
+            canonical_city = data[0].get("display_name", location).split(",")[0]
+    except Exception:
         canonical_city = data[0].get("display_name", location).split(",")[0]
 
     # Step 2: Get places from Overpass API
@@ -58,8 +65,13 @@ def get_places_info(location: str) -> str:
     );
     out body;
     """
-    resp = requests.post(overpass_url, data=query, headers={"Content-Type": "text/plain"})
-    places_data = resp.json()
+    try:
+        resp = requests.post(overpass_url, data=query, headers={"Content-Type": "text/plain"}, timeout=15)
+        resp.raise_for_status()
+        places_data = resp.json()
+    except Exception as e:
+        return f"Sorry, there was a problem contacting the places service: {e}"
+
     elements = places_data.get("elements", [])
     place_names = []
     for el in elements:
@@ -77,6 +89,6 @@ def get_places_info(location: str) -> str:
         f"Here are some places to visit in {canonical_city}:\n"
         f"{place_names}\n"
         f"Return only a Markdown bullet list (each place on its own line, starting with '- '), using only the names provided. "
-        f"Do not add or invent any places. Do not include any explanation, just the list and one line of intraduction."
+        f"Do not add or invent any places. Do not include any explanation, just the list and one line of introduction."
     )
     return gemini_chat(prompt)
